@@ -1,6 +1,6 @@
 /**
  * @name DefaultServer
- * @author fdarveau
+ * @author Silars
  * @authorId 135110300205711360
  * @version 1.0.0
  * @description Sets a default server when launching Discord instead of the "Friends" 
@@ -62,21 +62,56 @@ module.exports = (_ => {
 		return class DefaultServer extends Plugin {
 			onLoad () {
 				_this = this;
+
+				this.defaults = {
+					general: {
+						rememberLastServer:	{
+							value: true,
+							description: "Open Discord to the last server used",
+							note: "Enabling this setting ignores the default server selection below",
+							onChange: value => {
+								this.enableSavingLastActiveServer(value);
+							},
+						}
+					},
+				};
 			}
 			
 			onStart () {
-				let defaultServer = BDFDB.DataUtils.load(this, "selectedServer");
-				if (defaultServer) {
-					document.querySelector(`[data-list-item-id='guildsnav___${defaultServer}'`).click()
+				if (this.settings.general.rememberLastServer) {					
+					let lastActiveServer = BDFDB.DataUtils.load(this, "lastActiveServer");
+					if (lastActiveServer) {
+						document.querySelector(`[data-list-item-id='guildsnav___${lastActiveServer}'`).click()
+					}
+					this.enableSavingLastActiveServer(true);
+				} else {
+					let defaultServer = BDFDB.DataUtils.load(this, "selectedServer");
+					if (defaultServer) {
+						document.querySelector(`[data-list-item-id='guildsnav___${defaultServer}'`).click()
+					}
 				}
 			}
 			
 			onStop () {
-				// Nothing to do
+				this.enableSavingLastActiveServer(false);
 			}
 
 			getSettingsPanel (collapseStates = {}) {
 				let settingsPanel, settingsItems = [];
+
+				for (let key in this.defaults.general) {
+					settingsItems.push(BDFDB.ReactUtils.createElement(BDFDB.LibraryComponents.SettingsSaveItem, {
+						type: "Switch",
+						plugin: this,
+						keys: ["general", key],
+						label: this.defaults.general[key].description,
+						note: this.defaults.general[key].note,
+						value: this.settings.general[key],
+						onChange: value => {
+							this.defaults.general[key].onChange(value);
+						},
+					}));
+				}
 				
 				let listInstance = null
 
@@ -89,8 +124,16 @@ module.exports = (_ => {
 				BDFDB.ArrayUtils.remove(disabledServers, BDFDB.DataUtils.load(this, "selectedServer"));
 
 				settingsItems.push(BDFDB.ReactUtils.createElement("div", {
-					className: BDFDB.disCN.settingsrowcontainer,
+					className: BDFDB.disCN.settingsrowcontainer + ' ' + BDFDB.disCN.margintop20,
 					children: [
+						BDFDB.ReactUtils.createElement("div", {
+							className: BDFDB.disCN.settingsrowlabel,
+							children: [
+								BDFDB.ReactUtils.createElement(BDFDB.LibraryComponents.SettingsLabel, {
+									label: "Select default server"
+								}),
+							],
+						}),
 						BDFDB.ReactUtils.createElement(BDFDB.LibraryComponents.SettingsGuildList, {
 							className: BDFDB.disCN.marginbottom20,
 							disabled: disabledServers,
@@ -102,9 +145,8 @@ module.exports = (_ => {
 								this.saveSelectedServer(selectedServersIds);
 							},
 							ref: instance => {listInstance = instance;}
-						}),
-					]
-				}));
+						})
+				]}));
 				
 				return settingsPanel = BDFDB.PluginUtils.createSettingsPanel(this, settingsItems);
 			}
@@ -115,12 +157,34 @@ module.exports = (_ => {
 				}
 			}
 			
+			enableSavingLastActiveServer (enabled) {
+				const elementsSelector = "[data-list-item-id^='guildsnav___']";
+				if (enabled) {
+					var serverElements = document.body.querySelectorAll(elementsSelector);
+					for (const serverElement of serverElements) {
+						if (serverElement.className.indexOf("selected-") > -1) {
+							this.saveCurrentServer(serverElement);
+							break;
+						}
+					  }
+					BDFDB.ListenerUtils.add(this, document.body, "click", elementsSelector, e => this.saveCurrentServer(e.target));
+				} else {
+					BDFDB.DataUtils.remove(this, "lastActiveServer");
+					BDFDB.ListenerUtils.remove(this, document.body, "click", elementsSelector);
+				}
+			}
+
+			saveCurrentServer (target) {
+				if (!target) return;
+				const currentServerId = target.attributes['data-list-item-id'].value.replace('guildsnav___', '');
+				BDFDB.DataUtils.save(currentServerId, this, "lastActiveServer");
+			}
+			
 			saveSelectedServer (selectedServers) {
 				if (selectedServers.length > 1) {
 					BdApi.alert("Invalid setting", "Only one server can be selected as the default server. If multiple servers are selected, the first one will be the default server.");
 				}
 				selectedServer = selectedServers[0];
-				// BdApi.showToast(`${selectedServer} is now the default Server`);
 				BDFDB.DataUtils.save(selectedServer, this, "selectedServer");
 			}
 		};
