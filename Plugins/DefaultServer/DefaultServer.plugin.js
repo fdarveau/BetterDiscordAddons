@@ -162,7 +162,7 @@ module.exports = (_ => {
 				if (enabled) {
 					var serverElements = document.body.querySelectorAll(elementsSelector);
 					for (const serverElement of serverElements) {
-						if (serverElement.className.indexOf("selected-") > -1) {
+						if (serverElement.className.indexOf("selected_") > -1) {
 							this.saveCurrentServer(serverElement);
 							break;
 						}
