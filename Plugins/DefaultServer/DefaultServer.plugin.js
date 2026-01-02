@@ -2,7 +2,7 @@
  * @name DefaultServer
  * @author Silars
  * @authorId 135110300205711360
- * @version 1.0.1
+ * @version 1.0.2
  * @description Sets a default server when launching Discord instead of the "Friends" 
  * @invite Jx3TjNS
  * @donate https://www.paypal.me/MircoWittrien
@@ -27,7 +27,7 @@ module.exports = (_ => {
 		downloadLibrary () {
 			require("request").get("https://mwittrien.github.io/BetterDiscordAddons/Library/0BDFDB.plugin.js", (e, r, b) => {
 				if (!e && b && r.statusCode == 200) require("fs").writeFile(require("path").join(BdApi.Plugins.folder, "0BDFDB.plugin.js"), b, _ => BdApi.showToast("Finished downloading BDFDB Library", {type: "success"}));
-				else BdApi.alert("Error", "Could not download BDFDB Library Plugin. Try again later or download it manually from GitHub: https://mwittrien.github.io/downloader/?library");
+				else BdApi.UI.alert("Error", "Could not download BDFDB Library Plugin. Try again later or download it manually from GitHub: https://mwittrien.github.io/downloader/?library");
 			});
 		}
 		
@@ -80,7 +80,7 @@ module.exports = (_ => {
 			onStart () {
 				if (this.settings.general.rememberLastServer) {					
 					let lastActiveServer = BDFDB.DataUtils.load(this, "lastActiveServer");
-					if (lastActiveServer) {
+					if (lastActiveServer && lastActiveServer.click) {
 						document.querySelector(`[data-list-item-id='guildsnav___${lastActiveServer}'`).click()
 					}
 					this.enableSavingLastActiveServer(true);
@@ -93,7 +93,7 @@ module.exports = (_ => {
 			}
 			
 			onStop () {
-				this.enableSavingLastActiveServer(false);
+				this.enableSavingLastActiveServer(false, false);
 			}
 
 			getSettingsPanel (collapseStates = {}) {
@@ -157,7 +157,7 @@ module.exports = (_ => {
 				}
 			}
 			
-			enableSavingLastActiveServer (enabled) {
+			enableSavingLastActiveServer (enabled, clearSavedValueIfDisabled = true) {
 				const elementsSelector = "[data-list-item-id^='guildsnav___']";
 				if (enabled) {
 					var serverElements = document.body.querySelectorAll(elementsSelector);
@@ -169,7 +169,7 @@ module.exports = (_ => {
 					  }
 					BDFDB.ListenerUtils.add(this, document.body, "click", elementsSelector, e => this.saveCurrentServer(e.target));
 				} else {
-					BDFDB.DataUtils.remove(this, "lastActiveServer");
+					if (clearSavedValueIfDisabled) BDFDB.DataUtils.remove(this, "lastActiveServer");
 					BDFDB.ListenerUtils.remove(this, document.body, "click", elementsSelector);
 				}
 			}
@@ -182,7 +182,7 @@ module.exports = (_ => {
 			
 			saveSelectedServer (selectedServers) {
 				if (selectedServers.length > 1) {
-					BdApi.alert("Invalid setting", "Only one server can be selected as the default server. If multiple servers are selected, the first one will be the default server.");
+					BdApi.UI.alert("Invalid setting", "Only one server can be selected as the default server. If multiple servers are selected, the first one will be the default server.");
 				}
 				selectedServer = selectedServers[0];
 				BDFDB.DataUtils.save(selectedServer, this, "selectedServer");
